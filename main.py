@@ -3,43 +3,46 @@ import pandas as pd
 from datetime import datetime
 import os
 
-# 高雄 API 網址 (確認是最新版)
-url = "https://api.kcg.gov.tw/api/service/get/b4dd9c40-9027-4125-8666-06bef1756092"
+# 改用 TDX 訪客模式的 API 連結 (高雄市即時車位資訊)
+# TDX 平台對開發者較友善，通常不會阻擋 GitHub Actions
+url = "https://tdx.transportdata.tw/api/basic/v2/Bike/Availability/City/Kaohsiung?%24format=JSON"
 target_name = "楠梓高中"
 
-# 建立空檔案的保險，防止最後存檔報錯
+# 建立檔案保險
 if not os.path.isfile('youbike_log.csv'):
     pd.DataFrame(columns=['時間', '站名', '可借車輛', '可還空位']).to_csv('youbike_log.csv', index=False, encoding='utf-8-sig')
 
 try:
-    # 模擬瀏覽器訪問
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    response = requests.get(url, headers=headers, timeout=15)
-    data = response.json()
-    stations = data.get('data', [])
+    # 訪客模式不需要金鑰，直接請求即可
+    response = requests.get(url, timeout=30)
     
-    found = False
-    for s in stations:
-        # 使用更寬鬆的搜尋：只要名字有「楠梓高中」
-        if target_name in s.get('sna', ''):
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            new_data = {
-                '時間': [now],
-                '站名': [s.get('sna')],
-                '可借車輛': [s.get('sbi')],
-                '可還空位': [s.get('bemp')]
-            }
-            df_new = pd.DataFrame(new_data)
-            df_new.to_csv('youbike_log.csv', mode='a', index=False, header=False, encoding='utf-8-sig')
-            print(f"✅ 成功抓取: {s.get('sna')} at {now}")
-            found = True
-            break
+    if response.status_code == 200:
+        stations = response.json()
+        found = False
+        
+        for s in stations:
+            # TDX 的資料結構不同：名稱在 StationName -> Zh_tw 裡面
+            station_name = s.get('StationName', {}).get('Zh_tw', '')
             
-    if not found:
-        print(f"❌ 在 {len(stations)} 個站點中找不到 '{target_name}'")
-        # 即使找不到，我們也紀錄一筆「找不到」的紀錄，確保檔案有更新
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        pd.DataFrame([{'時間': now, '站名': '找不到站點', '可借車輛': 0, '可還空位': 0}]).to_csv('youbike_log.csv', mode='a', index=False, header=False, encoding='utf-8-sig')
+            if target_name in station_name:
+                now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                # TDX 欄位：AvailableReturnBikes (可借), AvailableRentSpaces (可還)
+                new_data = {
+                    '時間': [now],
+                    '站名': [station_name],
+                    '可借車輛': [s.get('AvailableReturnBikes')],
+                    '可還空位': [s.get('AvailableRentSpaces')]
+                }
+                df_new = pd.DataFrame(new_data)
+                df_new.to_csv('youbike_log.csv', mode='a', index=False, header=False, encoding='utf-8-sig')
+                print(f"✅ TDX 抓取成功: {station_name}")
+                found = True
+                break
+        
+        if not found:
+            print(f"❌ TDX 資料庫中目前找不到包含 '{target_name}' 的站點")
+    else:
+        print(f"⚠️ TDX 伺服器回應錯誤碼: {response.status_code}")
 
 except Exception as e:
     print(f"⚠️ 發生錯誤: {e}")
