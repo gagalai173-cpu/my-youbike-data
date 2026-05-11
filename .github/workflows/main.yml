@@ -1,0 +1,32 @@
+name: YouBike Data Logger
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # 每 30 分鐘執行一次
+  workflow_dispatch:        # 允許手動點擊執行
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 複製儲存庫內容
+        uses: actions/checkout@v3
+
+      - name: 設定 Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: 安裝必要工具
+        run: pip install requests pandas
+
+      - name: 執行抓取程式
+        run: python main.py
+
+      - name: 將資料存回 GitHub
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add youbike_log.csv
+          git commit -m "Update YouBike data" || exit 0
+          git push
