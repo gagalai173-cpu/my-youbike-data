@@ -1,48 +1,42 @@
-import requests
-import pandas as pd
-from datetime import datetime
+import urllib.request
+import json
+import csv
 import os
+from datetime import datetime
 
-# 改用 TDX 訪客模式的 API 連結 (高雄市即時車位資訊)
-# TDX 平台對開發者較友善，通常不會阻擋 GitHub Actions
+# TDX 訪客連結
 url = "https://tdx.transportdata.tw/api/basic/v2/Bike/Availability/City/Kaohsiung?%24format=JSON"
 target_name = "楠梓高中"
+file_name = 'youbike_log.csv'
 
-# 建立檔案保險
-if not os.path.isfile('youbike_log.csv'):
-    pd.DataFrame(columns=['時間', '站名', '可借車輛', '可還空位']).to_csv('youbike_log.csv', index=False, encoding='utf-8-sig')
+# 準備檔案標題
+if not os.path.exists(file_name):
+    with open(file_name, 'w', newline='', encoding='utf-8-sig') as f:
+        writer = csv.writer(f)
+        writer.writerow(['時間', '站名', '可借車輛', '可還空位'])
 
 try:
-    # 訪客模式不需要金鑰，直接請求即可
-    response = requests.get(url, timeout=30)
-    
-    if response.status_code == 200:
-        stations = response.json()
-        found = False
+    # 使用內建的 urllib 代替 requests
+    with urllib.request.urlopen(url, timeout=30) as response:
+        data = json.loads(response.read().decode())
         
-        for s in stations:
-            # TDX 的資料結構不同：名稱在 StationName -> Zh_tw 裡面
-            station_name = s.get('StationName', {}).get('Zh_tw', '')
-            
-            if target_name in station_name:
+        found = False
+        for s in data:
+            name = s.get('StationName', {}).get('Zh_tw', '')
+            if target_name in name:
                 now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                # TDX 欄位：AvailableReturnBikes (可借), AvailableRentSpaces (可還)
-                new_data = {
-                    '時間': [now],
-                    '站名': [station_name],
-                    '可借車輛': [s.get('AvailableReturnBikes')],
-                    '可還空位': [s.get('AvailableRentSpaces')]
-                }
-                df_new = pd.DataFrame(new_data)
-                df_new.to_csv('youbike_log.csv', mode='a', index=False, header=False, encoding='utf-8-sig')
-                print(f"✅ TDX 抓取成功: {station_name}")
+                row = [now, name, s.get('AvailableReturnBikes'), s.get('AvailableRentSpaces')]
+                
+                with open(file_name, 'a', newline='', encoding='utf-8-sig') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(row)
+                
+                print(f"✅ 成功寫入: {name}")
                 found = True
                 break
         
         if not found:
-            print(f"❌ TDX 資料庫中目前找不到包含 '{target_name}' 的站點")
-    else:
-        print(f"⚠️ TDX 伺服器回應錯誤碼: {response.status_code}")
+            print(f"❌ 找不到站點: {target_name}")
 
 except Exception as e:
     print(f"⚠️ 發生錯誤: {e}")
