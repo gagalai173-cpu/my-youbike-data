@@ -34,8 +34,8 @@ try:
         data = json.loads(res.read().decode())
         
         file_name = 'nanzih_bike_data.csv'
-        # 重新嚴格定義欄位順序
-        headers = ['更新時間', '站名', '總可借車數', '可歸還空位數', '一般車數量', '電輔車數量', '站點UID']
+        # 欄位名稱重新定義，確保與 App 邏輯一致
+        headers = ['紀錄時間(台北)', '站名', '可借車輛合計', '一般車', '電輔車', '空車位(可還)', '站點UID']
         
         if not os.path.exists(file_name):
             with open(file_name, 'w', newline='', encoding='utf-8-sig') as f:
@@ -43,28 +43,31 @@ try:
 
         with open(file_name, 'a', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
+            # 強制設定時區為台北 (UTC+8)
+            tz = timezone(timedelta(hours=8))
+            now_tw = datetime.now(tz).strftime('%Y-%m-%d %H:%M:%S')
+            
             for s in data:
                 uid = s.get('StationUID')
                 if uid in target_ids:
                     name = target_ids[uid]
-                    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     
-                    # 擷取數據 (補強細節抓取邏輯)
-                    total = s.get('AvailableReturnBikes', 0)
-                    spaces = s.get('AvailableRentSpaces', 0)
+                    # 重新對應 TDX 欄位
+                    # AvailableReturnBikes = 現場有的車 = 可借
+                    can_borrow = s.get('AvailableReturnBikes', 0)
+                    # AvailableRentSpaces = 現場空位 = 可還
+                    can_return = s.get('AvailableRentSpaces', 0)
                     
-                    # 處理某些站點可能沒有 Detail 的情況
                     detail = s.get('AvailableReturnBikesDetail', {})
-                    # 如果 Detail 是空的，我們保險起見把 total 歸類到一般車
                     reg = detail.get('GeneralBikes', 0)
                     ebike = detail.get('ElectricBikes', 0)
                     
-                    if reg == 0 and ebike == 0 and total > 0:
-                        reg = total # 避免出現總數 53 但明細都是 0 的怪現象
+                    # 邏輯補正：若明細為 0 但總數有值，歸類為一般車
+                    if reg == 0 and ebike == 0 and can_borrow > 0:
+                        reg = can_borrow
                     
-                    # 嚴格對齊 headers 的順序寫入
-                    writer.writerow([now, name, total, spaces, reg, ebike, uid])
-                    print(f"✅ 成功錄入：{name}")
+                    writer.writerow([now_tw, name, can_borrow, reg, ebike, can_return, uid])
+                    print(f"✅ 紀錄成功：{name} (可借:{can_borrow}, 可還:{can_return})")
 
 except Exception as e:
     print(f"⚠️ 錯誤: {e}")
