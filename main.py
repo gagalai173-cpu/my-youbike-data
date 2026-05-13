@@ -2,6 +2,7 @@ import urllib.request
 import json
 import csv
 import os
+from datetime import datetime # 修正點：確保載入時間模組
 
 # --- 請填入你的 TDX 金鑰 ---
 client_id = "gagalai.173-a1d531fc-3ae2-4793"
@@ -38,7 +39,7 @@ try:
         # 初始化標題
         if not os.path.exists(file_name):
             with open(file_name, 'w', newline='', encoding='utf-8-sig') as f:
-                csv.writer(f).writerow(['時間', '站名', '可借總數', '可還空位', '一般車', '電輔車', 'UID'])
+                csv.writer(f).writerow(['紀錄時間', '站名', '可借總數', '可還空位', '一般車', '電輔車', 'UID'])
 
         found_count = 0
         with open(file_name, 'a', newline='', encoding='utf-8-sig') as f:
@@ -47,19 +48,20 @@ try:
                 uid = s.get('StationUID')
                 if uid in target_ids:
                     name = target_ids[uid]
-                    # 取得時間與數據
-                    update_time = s.get('UpdateTime', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                    # 使用 datetime.now() 紀錄現在抓取的時間
+                    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
                     total = s.get('AvailableReturnBikes', 0)
                     spaces = s.get('AvailableRentSpaces', 0)
                     detail = s.get('AvailableReturnBikesDetail', {})
                     reg = detail.get('GeneralBikes', 0)
                     ebike = detail.get('ElectricBikes', 0)
                     
-                    writer.writerow([update_time, name, total, spaces, reg, ebike, uid])
+                    writer.writerow([now, name, total, spaces, reg, ebike, uid])
                     print(f"✅ 成功攔截！ 站名：{name}")
                     found_count += 1
         
-        print(f"🏁 任務完成！共成功紀錄 {found_count} 筆數據至 CSV。")
+        print(f"🏁 任務完成！共成功紀錄 {found_count} 筆數據。")
 
 except Exception as e:
     print(f"⚠️ 發生錯誤: {e}")
