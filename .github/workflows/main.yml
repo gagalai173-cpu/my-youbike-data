@@ -1,9 +1,7 @@
 name: YouBike Data Logger
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
-  workflow_dispatch:
+  workflow_dispatch:  # 僅保留「手動執行」按鈕
 
 jobs:
   build:
@@ -20,12 +18,12 @@ jobs:
           python-version: '3.10'
 
       - name: 執行抓取程式
-        run: python main.py  # 注意：這裡刪掉了 pip install 那一步
+        run: python main.py
 
       - name: 將資料存回 GitHub
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add youbike_log.csv
-          git commit -m "Update data [skip ci]" || exit 0
+          git commit -m "Manual data fetch [skip ci]" || exit 0
           git push
