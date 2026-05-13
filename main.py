@@ -9,7 +9,7 @@ client_id = "gagalai.173-a1d531fc-3ae2-4793"
 client_secret = "322266eb-18f5-4586-9ae4-e423b6996b87"
 # ------------------------------
 
-# 使用 image_46843d.png 查到的正確 ID
+# 正確的 UID 對照表
 target_ids = {
     'KHH501210027': 'YouBike2.0_楠梓高中',
     'KHH501210124': 'YouBike2.0_楠梓高中(土庫六路側)'
@@ -27,7 +27,6 @@ def get_token():
 
 try:
     token = get_token()
-    # 即時動態 API
     url = "https://tdx.transportdata.tw/api/basic/v2/Bike/Availability/City/Kaohsiung?%24format=JSON"
     req = urllib.request.Request(url)
     req.add_header('Authorization', f'Bearer {token}')
@@ -36,10 +35,13 @@ try:
         data = json.loads(res.read().decode())
         
         file_name = 'nanzih_bike_data.csv'
-        # 初始化標題
+        # 重新定義整齊的標題列
+        headers = ['紀錄時間', '站名', '可借總數', '可還空位', '一般車數量', '電輔車數量', '站點UID']
+        
+        # 如果檔案不存在，建立新檔並寫入標題
         if not os.path.exists(file_name):
             with open(file_name, 'w', newline='', encoding='utf-8-sig') as f:
-                csv.writer(f).writerow(['紀錄時間', '站名', '可借總數', '可還空位', '一般車', '電輔車', 'UID'])
+                csv.writer(f).writerow(headers)
 
         found_count = 0
         with open(file_name, 'a', newline='', encoding='utf-8-sig') as f:
@@ -48,20 +50,21 @@ try:
                 uid = s.get('StationUID')
                 if uid in target_ids:
                     name = target_ids[uid]
-                    # 使用 datetime.now() 紀錄現在抓取的時間
                     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     
-                    total = s.get('AvailableReturnBikes', 0)
-                    spaces = s.get('AvailableRentSpaces', 0)
+                    # 擷取數據
+                    available_bikes = s.get('AvailableReturnBikes', 0)
+                    available_spaces = s.get('AvailableRentSpaces', 0)
                     detail = s.get('AvailableReturnBikesDetail', {})
-                    reg = detail.get('GeneralBikes', 0)
-                    ebike = detail.get('ElectricBikes', 0)
+                    general_bikes = detail.get('GeneralBikes', 0)
+                    electric_bikes = detail.get('ElectricBikes', 0)
                     
-                    writer.writerow([now, name, total, spaces, reg, ebike, uid])
-                    print(f"✅ 成功攔截！ 站名：{name}")
+                    # 按照標題順序寫入！
+                    writer.writerow([now, name, available_bikes, available_spaces, general_bikes, electric_bikes, uid])
+                    print(f"✅ 成功錄入資料：{name}")
                     found_count += 1
         
-        print(f"🏁 任務完成！共成功紀錄 {found_count} 筆數據。")
+        print(f"🏁 任務完成！已成功對齊並存入 {found_count} 筆資料。")
 
 except Exception as e:
     print(f"⚠️ 發生錯誤: {e}")
