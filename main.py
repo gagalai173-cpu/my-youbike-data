@@ -26,7 +26,8 @@ def get_token():
 
 try:
     token = get_token()
-    url = "https://tdx.transportdata.tw/api/basic/v2/Bike/Availability/City/Kaohsiung?%24format=JSON"
+    # 核心修正：改用 v3 版本，這通常是目前最穩定的來源
+    url = "https://tdx.transportdata.tw/api/basic/v3/Bike/Availability/City/Kaohsiung?%24format=JSON"
     req = urllib.request.Request(url)
     req.add_header('Authorization', f'Bearer {token}')
     
@@ -50,19 +51,23 @@ try:
                 if uid in target_ids:
                     name = target_ids[uid]
                     
-                    # 1. 抓取空位 (在高雄 API 中這是 AvailableReturnBikes)
-                    can_stop_spaces = s.get('AvailableReturnBikes', 0) 
+                    # V3 的欄位定義更直覺一點
+                    # 可借總數
+                    total = s.get('AvailableReturnBikes', 0)
+                    # 可停空位
+                    spaces = s.get('AvailableRentSpaces', 0)
                     
-                    # 2. 抓取明細 (這是我們目前最準確的數據源)
+                    # 抓取明細
                     detail = s.get('AvailableReturnBikesDetail', {})
                     reg = detail.get('GeneralBikes', 0)
                     ebike = detail.get('ElectricBikes', 0)
                     
-                    # 3. 自定義加總邏輯：不再相信 TDX 的總數欄位，我們自己算！
-                    total_borrow = reg + ebike
-                    
-                    writer.writerow([now_tw, name, total_borrow, reg, ebike, can_stop_spaces, uid])
-                    print(f"✅ 完美錄入：{name} (總數:{total_borrow} = {reg} + {ebike})")
+                    # 邏輯保護：若總數有車但明細為 0
+                    if (reg + ebike) == 0 and total > 0:
+                        reg = total
+
+                    writer.writerow([now_tw, name, total, reg, ebike, spaces, uid])
+                    print(f"✅ V3 錄入：{name} (借:{total}, 停:{spaces})")
 
 except Exception as e:
     print(f"⚠️ 錯誤: {e}")
