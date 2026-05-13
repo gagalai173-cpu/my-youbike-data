@@ -17,7 +17,6 @@ def get_token():
 
 try:
     token = get_token()
-    # 這次我們換一個 API 網址：抓取「基本資訊 (Station)」
     url = "https://tdx.transportdata.tw/api/basic/v2/Bike/Station/City/Kaohsiung?%24format=JSON"
     req = urllib.request.Request(url)
     req.add_header('Authorization', f'Bearer {token}')
@@ -27,22 +26,23 @@ try:
         
         with open('nanzi_stations.csv', 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
-            writer.writerow(['站名', '行政區', '位置描述', '緯度', '經度'])
+            writer.writerow(['站名', '位置描述', '緯度', '經度'])
             
             count = 0
             for s in data:
-                # 篩選出「楠梓區」的站點
-                dist = s.get('StationAddress', {}).get('Zh_tw', '')
-                if "楠梓區" in dist:
-                    name = s.get('StationName', {}).get('Zh_tw', '')
+                # 取得站名與地址
+                name = s.get('StationName', {}).get('Zh_tw', '')
+                addr = s.get('StationAddress', {}).get('Zh_tw', '')
+                
+                # 只要站名或地址裡有「楠梓」，就記錄下來
+                if "楠梓" in name or "楠梓" in addr:
                     lat = s.get('StationPosition', {}).get('PositionLat')
                     lon = s.get('StationPosition', {}).get('PositionLon')
-                    addr = s.get('StationAddress', {}).get('Zh_tw')
                     
-                    writer.writerow([name, "楠梓區", addr, lat, lon])
+                    writer.writerow([name, addr, lat, lon])
                     count += 1
             
-            print(f"✅ 成功！已抓取楠梓區共 {count} 個站點資訊。")
+            print(f"✅ 修正成功！總共抓到 {count} 個位於楠梓的站點。")
 
 except Exception as e:
     print(f"⚠️ 發生錯誤: {e}")
