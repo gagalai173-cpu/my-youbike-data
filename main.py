@@ -34,7 +34,6 @@ try:
         data = json.loads(res.read().decode())
         
         file_name = 'nanzih_bike_data.csv'
-        # 標題完全比照 App 顯示名稱
         headers = ['紀錄時間(台北)', '站名', '可借總數(車)', '一般車', '電輔車', '可停空位(柱)', '站點UID']
         
         if not os.path.exists(file_name):
@@ -51,23 +50,29 @@ try:
                 if uid in target_ids:
                     name = target_ids[uid]
                     
-                    # --- 核心邏輯反轉修正 ---
-                    # 根據老師實測 App 與 API 對比：
-                    # 這次我們發現高雄 TDX 欄位定義如下：
-                    can_stop_spaces = s.get('AvailableReturnBikes', 0) # 53 應該是空位
-                    can_borrow_total = s.get('AvailableRentSpaces', 0) # 8 應該是可借總數
+                    # 依據 image_3bae7b.png 的實測數據對號入座：
+                    # 53 是空位，對應的是 AvailableReturnBikes
+                    can_stop_spaces = s.get('AvailableReturnBikes', 0) 
+                    # 8 是可借總數，對應的是 AvailableRentSpaces
+                    can_borrow_total = s.get('AvailableRentSpaces', 0) 
                     
-                    detail = s.get('AvailableReturnBikesDetail', {}) # 注意：明細通常跟著「車輛」走
-                    # 如果明細還是抓不到，我們從總數推算
+                    # 抓取明細：雖然欄位名稱很怪，但我們把所有細節都翻一遍
+                    detail = s.get('AvailableReturnBikesDetail', {})
                     reg = detail.get('GeneralBikes', 0)
                     ebike = detail.get('ElectricBikes', 0)
                     
-                    # 再次對齊：如果總數有車但明細是0，補到一般車
-                    if reg == 0 and ebike == 0 and can_borrow_total > 0:
+                    # 如果明細抓不到，嘗試從另一個可能的地方抓 (有些版本的 API 會放在 Rent 結尾的欄位)
+                    if reg == 0 and ebike == 0:
+                        rent_detail = s.get('AvailableRentBikesDetail', {})
+                        reg = rent_detail.get('GeneralBikes', 0)
+                        ebike = rent_detail.get('ElectricBikes', 0)
+
+                    # 數據防護：如果總數有車但明細都是 0，暫時全部歸類為一般車，確保數據邏輯一致
+                    if (reg + ebike) == 0 and can_borrow_total > 0:
                         reg = can_borrow_total
 
                     writer.writerow([now_tw, name, can_borrow_total, reg, ebike, can_stop_spaces, uid])
-                    print(f"✅ 修正錄入：{name} [可借:{can_borrow_total} (一般{reg}/電輔{ebike}), 可停:{can_stop_spaces}]")
+                    print(f"✅ 數據入庫：{name} (借:{can_borrow_total} / 停:{can_stop_spaces})")
 
 except Exception as e:
-    print(f"⚠️ 錯誤: {e}")
+    print(f"⚠️ 系統錯誤: {e}")
