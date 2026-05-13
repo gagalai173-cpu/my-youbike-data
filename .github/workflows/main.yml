@@ -24,6 +24,6 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add youbike_log.csv
+          git add *.csv
           git commit -m "Manual data fetch [skip ci]" || exit 0
           git push
