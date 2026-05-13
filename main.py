@@ -26,8 +26,8 @@ def get_token():
 
 try:
     token = get_token()
-    # 核心修正：改用 v3 版本，這通常是目前最穩定的來源
-    url = "https://tdx.transportdata.tw/api/basic/v3/Bike/Availability/City/Kaohsiung?%24format=JSON"
+    # 回歸高雄可用的 v2 網址
+    url = "https://tdx.transportdata.tw/api/basic/v2/Bike/Availability/City/Kaohsiung?%24format=JSON"
     req = urllib.request.Request(url)
     req.add_header('Authorization', f'Bearer {token}')
     
@@ -51,23 +51,27 @@ try:
                 if uid in target_ids:
                     name = target_ids[uid]
                     
-                    # V3 的欄位定義更直覺一點
-                    # 可借總數
-                    total = s.get('AvailableReturnBikes', 0)
-                    # 可停空位
-                    spaces = s.get('AvailableRentSpaces', 0)
+                    # 根據之前的實測對齊欄位：
+                    # 高雄 v2 裡，RentSpaces 是可借總數，ReturnBikes 是空位
+                    can_borrow_total = s.get('AvailableRentSpaces', 0)
+                    can_stop_spaces = s.get('AvailableReturnBikes', 0)
                     
                     # 抓取明細
                     detail = s.get('AvailableReturnBikesDetail', {})
                     reg = detail.get('GeneralBikes', 0)
                     ebike = detail.get('ElectricBikes', 0)
                     
-                    # 邏輯保護：若總數有車但明細為 0
-                    if (reg + ebike) == 0 and total > 0:
-                        reg = total
-
-                    writer.writerow([now_tw, name, total, reg, ebike, spaces, uid])
-                    print(f"✅ V3 錄入：{name} (借:{total}, 停:{spaces})")
+                    # --- 強力邏輯修正 ---
+                    # 1. 如果明細加總不等於總數，且總數 > 0，則進行校正
+                    if (reg + ebike) != can_borrow_total and can_borrow_total > 0:
+                        # 優先相信總數，若明細不足，將差額補到一般車
+                        reg = can_borrow_total - ebike
+                        if reg < 0: # 防呆，避免出現負數
+                            reg = can_borrow_total
+                            ebike = 0
+                    
+                    writer.writerow([now_tw, name, can_borrow_total, reg, ebike, can_stop_spaces, uid])
+                    print(f"✅ 修正錄入：{name} (借:{can_borrow_total}, 停:{can_stop_spaces})")
 
 except Exception as e:
-    print(f"⚠️ 錯誤: {e}")
+    print(f"⚠️ 發生錯誤: {e}")
