@@ -9,7 +9,6 @@ client_id = "gagalai.173-a1d531fc-3ae2-4793"
 client_secret = "322266eb-18f5-4586-9ae4-e423b6996b87"
 # ------------------------------
 
-# 正確的 UID 對照表
 target_ids = {
     'KHH501210027': 'YouBike2.0_楠梓高中',
     'KHH501210124': 'YouBike2.0_楠梓高中(土庫六路側)'
@@ -35,15 +34,13 @@ try:
         data = json.loads(res.read().decode())
         
         file_name = 'nanzih_bike_data.csv'
-        # 重新定義整齊的標題列
-        headers = ['紀錄時間', '站名', '可借總數', '可還空位', '一般車數量', '電輔車數量', '站點UID']
+        # 重新嚴格定義欄位順序
+        headers = ['更新時間', '站名', '總可借車數', '可歸還空位數', '一般車數量', '電輔車數量', '站點UID']
         
-        # 如果檔案不存在，建立新檔並寫入標題
         if not os.path.exists(file_name):
             with open(file_name, 'w', newline='', encoding='utf-8-sig') as f:
                 csv.writer(f).writerow(headers)
 
-        found_count = 0
         with open(file_name, 'a', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
             for s in data:
@@ -52,19 +49,22 @@ try:
                     name = target_ids[uid]
                     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     
-                    # 擷取數據
-                    available_bikes = s.get('AvailableReturnBikes', 0)
-                    available_spaces = s.get('AvailableRentSpaces', 0)
-                    detail = s.get('AvailableReturnBikesDetail', {})
-                    general_bikes = detail.get('GeneralBikes', 0)
-                    electric_bikes = detail.get('ElectricBikes', 0)
+                    # 擷取數據 (補強細節抓取邏輯)
+                    total = s.get('AvailableReturnBikes', 0)
+                    spaces = s.get('AvailableRentSpaces', 0)
                     
-                    # 按照標題順序寫入！
-                    writer.writerow([now, name, available_bikes, available_spaces, general_bikes, electric_bikes, uid])
-                    print(f"✅ 成功錄入資料：{name}")
-                    found_count += 1
-        
-        print(f"🏁 任務完成！已成功對齊並存入 {found_count} 筆資料。")
+                    # 處理某些站點可能沒有 Detail 的情況
+                    detail = s.get('AvailableReturnBikesDetail', {})
+                    # 如果 Detail 是空的，我們保險起見把 total 歸類到一般車
+                    reg = detail.get('GeneralBikes', 0)
+                    ebike = detail.get('ElectricBikes', 0)
+                    
+                    if reg == 0 and ebike == 0 and total > 0:
+                        reg = total # 避免出現總數 53 但明細都是 0 的怪現象
+                    
+                    # 嚴格對齊 headers 的順序寫入
+                    writer.writerow([now, name, total, spaces, reg, ebike, uid])
+                    print(f"✅ 成功錄入：{name}")
 
 except Exception as e:
-    print(f"⚠️ 發生錯誤: {e}")
+    print(f"⚠️ 錯誤: {e}")
