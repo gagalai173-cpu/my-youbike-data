@@ -17,32 +17,39 @@ def get_token():
 
 try:
     token = get_token()
-    url = "https://tdx.transportdata.tw/api/basic/v2/Bike/Station/City/Kaohsiung?%24format=JSON"
+    # 使用「即時動態」API，這才包含電輔車數量
+    url = "https://tdx.transportdata.tw/api/basic/v2/Bike/Availability/City/Kaohsiung?%24format=JSON"
     req = urllib.request.Request(url)
     req.add_header('Authorization', f'Bearer {token}')
     
     with urllib.request.urlopen(req) as res:
         data = json.loads(res.read().decode())
         
-        with open('nanzi_stations.csv', 'w', newline='', encoding='utf-8-sig') as f:
+        file_name = 'nanzih_bike_data.csv'
+        # 準備老師指定的欄位
+        headers = ['站名', '資料更新時間', '總可借車數', '可歸還車數', '一般車數量', '電輔車數量']
+        
+        with open(file_name, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
-            writer.writerow(['站名', '位置描述', '緯度', '經度'])
+            writer.writerow(headers)
             
             count = 0
             for s in data:
-                # 取得站名與地址
                 name = s.get('StationName', {}).get('Zh_tw', '')
-                addr = s.get('StationAddress', {}).get('Zh_tw', '')
                 
-                # 只要站名或地址裡有「楠梓」，就記錄下來
-                if "楠梓" in name or "楠梓" in addr:
-                    lat = s.get('StationPosition', {}).get('PositionLat')
-                    lon = s.get('StationPosition', {}).get('PositionLon')
+                # 同時監測您指定的兩站，或任何包含「楠梓」的站點
+                if "楠梓" in name:
+                    # 擷取 TDX 規格書定義的精確欄位
+                    update_time = s.get('UpdateTime', '')
+                    total_bikes = s.get('AvailableReturnBikes', 0)    # 總可借
+                    return_spaces = s.get('AvailableRentSpaces', 0)   # 可歸還
+                    regular_bikes = s.get('AvailableReturnBikesDetail', {}).get('GeneralBikes', 0) # 一般車
+                    ebikes = s.get('AvailableReturnBikesDetail', {}).get('ElectricBikes', 0)       # 電輔車
                     
-                    writer.writerow([name, addr, lat, lon])
+                    writer.writerow([name, update_time, total_bikes, return_spaces, regular_bikes, ebikes])
                     count += 1
             
-            print(f"✅ 修正成功！總共抓到 {count} 個位於楠梓的站點。")
+            print(f"✅ 成功！已紀錄楠梓區共 {count} 個站點的詳細即時資訊。")
 
 except Exception as e:
     print(f"⚠️ 發生錯誤: {e}")
