@@ -10,7 +10,7 @@ client_secret = "322266eb-18f5-4586-9ae4-e423b6996b87"
 # ------------------------------
 
 file_name = 'youbike_log.csv'
-if "楠梓高中" in name:
+target_name = "楠梓高中" # 你也可以根據截圖換成 "普同精舍"
 
 def get_token():
     auth_url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
