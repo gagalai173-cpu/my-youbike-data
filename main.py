@@ -11,7 +11,9 @@ client_secret = "322266eb-18f5-4586-9ae4-e423b6996b87"
 
 target_ids = {
     'KHH501210027': 'YouBike2.0_楠梓高中',
-    'KHH501210124': 'YouBike2.0_楠梓高中(土庫六路側)'
+    'KHH501210124': 'YouBike2.0_楠梓高中(土庫六路側)',
+    'KHH501210040': 'YouBike2.0_市立中山高級中學(藍田路側)',
+    'KHH501210112': 'YouBike2.0_中山高級中學(藍昌路側)'
 }
 
 def get_token():
