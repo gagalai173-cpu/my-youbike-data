@@ -2,7 +2,7 @@ name: YouBike Data Logger
 
 on:
   schedule:
-    - cron: '*/5 3,4 * * *'
+    - cron: '*/5 5,6 * * *'
   workflow_dispatch:
 
 jobs:
